@@ -15,18 +15,10 @@ public class jontainer {
 
     switch (args[0]) {
       case "run" -> {
-        try {
           Parent.run(cmd);
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
       }
       case "child" -> {
-        try {
-          Child.run(cmd);
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
+        Child.run(cmd);
       }
       default -> {
         System.out.println("Unknown command: " + args[0]);
@@ -37,8 +29,8 @@ public class jontainer {
 }
 
 class Parent {
-  public static void run(String[] cmd) throws Exception {
     System.out.println("Running parent " + Arrays.toString(cmd));
+  public static void run(String[] cmd) {
 
     String javaExe = ProcessHandle.current().info().command().orElse("java");
     String classPath = System.getProperty("java.class.path");
@@ -50,17 +42,33 @@ class Parent {
     // Prepend unshare -u to create new UTS namespace for the child process
     List<String> cmdWithUnshare = Stream.concat(Stream.of("unshare", "-u"), cmdWithChild).toList();
 
-    new ProcessBuilder(cmdWithUnshare).inheritIO().start().waitFor();
+    Util.must(() -> new ProcessBuilder(cmdWithUnshare).inheritIO().start().waitFor());
   }
 }
 
 class Child {
-  public static void run(String[] cmd) throws Exception {
     System.out.println("Running child " + Arrays.toString(cmd));
+  public static void run(String[] cmd) {
 
     // set the hostname of current child container
-    new ProcessBuilder("hostname", "container").inheritIO().start().waitFor();
+    Util.must(() -> new ProcessBuilder("hostname", "container").inheritIO().start().waitFor());
 
-    new ProcessBuilder(cmd).inheritIO().start().waitFor();
+    Util.must(() -> new ProcessBuilder(cmd).inheritIO().start().waitFor());
+  }
+}
+
+class Util {
+  static void must(ThrowableRunnable x) {
+    try {
+      x.run();
+    } catch (Exception e) {
+      e.printStackTrace();
+      System.exit(1);
+    }
+  }
+
+  @FunctionalInterface
+  interface ThrowableRunnable {
+    void run() throws Exception;
   }
 }
