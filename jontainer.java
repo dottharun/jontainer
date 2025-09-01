@@ -29,8 +29,9 @@ public class jontainer {
 }
 
 class Parent {
-    System.out.println("Running parent " + Arrays.toString(cmd));
   public static void run(String[] cmd) {
+    System.out.println(
+        "Running parent " + Arrays.toString(cmd) + " as " + ProcessHandle.current().pid());
 
     String javaExe = ProcessHandle.current().info().command().orElse("java");
     String classPath = System.getProperty("java.class.path");
@@ -39,16 +40,21 @@ class Parent {
     Stream<String> cmdWithChild =
         Stream.concat(Stream.of(javaExe, "-cp", classPath, mainClass, "child"), Arrays.stream(cmd));
 
-    // Prepend unshare -u to create new UTS namespace for the child process
-    List<String> cmdWithUnshare = Stream.concat(Stream.of("unshare", "-u"), cmdWithChild).toList();
+    // Prepend unshare with namespace args for the child process
+    List<String> cmdWithUnshare =
+        Stream.concat(
+                Stream.of("unshare", "--uts", "--pid", "--mount", "--fork", "--mount-proc"),
+                cmdWithChild)
+            .toList();
 
     Util.must(() -> new ProcessBuilder(cmdWithUnshare).inheritIO().start().waitFor());
   }
 }
 
 class Child {
-    System.out.println("Running child " + Arrays.toString(cmd));
   public static void run(String[] cmd) {
+    System.out.println(
+        "Running child " + Arrays.toString(cmd) + " as " + ProcessHandle.current().pid());
 
     // set the hostname of current child container
     Util.must(() -> new ProcessBuilder("hostname", "container").inheritIO().start().waitFor());
