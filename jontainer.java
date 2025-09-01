@@ -2,17 +2,28 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
-class jontainer {
+public class jontainer {
   public static void main(String[] args) {
+    System.out.println("args: " + Arrays.toString(args));
+
     if (args.length == 0) {
       System.err.println("No command provided");
       System.exit(1);
     }
 
+    var cmd = Arrays.copyOfRange(args, 1, args.length);
+
     switch (args[0]) {
       case "run" -> {
         try {
-          run(Arrays.copyOfRange(args, 1, args.length));
+          Parent.run(cmd);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }
+      case "child" -> {
+        try {
+          Child.run(cmd);
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -23,13 +34,33 @@ class jontainer {
       }
     }
   }
+}
 
-  private static void run(String[] args) throws Exception {
-    System.out.println("Running " + Arrays.toString(args));
+class Parent {
+  public static void run(String[] cmd) throws Exception {
+    System.out.println("Running parent " + Arrays.toString(cmd));
 
-    // Prepend unshare -u to create new UTS namespace
-    List<String> command = Stream.concat(Stream.of("unshare", "-u"), Arrays.stream(args)).toList();
+    String javaExe = ProcessHandle.current().info().command().orElse("java");
+    String classPath = System.getProperty("java.class.path");
+    String mainClass = System.getProperty("sun.java.command").split(" ")[1];
 
-    new ProcessBuilder(command).inheritIO().start().waitFor();
+    Stream<String> cmdWithChild =
+        Stream.concat(Stream.of(javaExe, "-cp", classPath, mainClass, "child"), Arrays.stream(cmd));
+
+    // Prepend unshare -u to create new UTS namespace for the child process
+    List<String> cmdWithUnshare = Stream.concat(Stream.of("unshare", "-u"), cmdWithChild).toList();
+
+    new ProcessBuilder(cmdWithUnshare).inheritIO().start().waitFor();
+  }
+}
+
+class Child {
+  public static void run(String[] cmd) throws Exception {
+    System.out.println("Running child " + Arrays.toString(cmd));
+
+    // set the hostname of current child container
+    new ProcessBuilder("hostname", "container").inheritIO().start().waitFor();
+
+    new ProcessBuilder(cmd).inheritIO().start().waitFor();
   }
 }
