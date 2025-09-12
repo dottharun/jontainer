@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
 
 # Create debian-fs directory with Debian bookworm (skip keyring check)
 RUN mkdir -p /my-fs/debian-fs && \
-    debootstrap --no-check-gpg --variant=minbase bookworm /my-fs/debian-fs http://deb.debian.org/debian
+    debootstrap --no-check-gpg bookworm /my-fs/debian-fs http://deb.debian.org/debian && \
+    touch /my-fs/debian-fs/CONTAINER_ROOT
 
 WORKDIR /app
 

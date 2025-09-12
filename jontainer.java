@@ -1,5 +1,8 @@
+import com.sun.jna.Library;
+import com.sun.jna.Native;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public class jontainer {
@@ -15,7 +18,7 @@ public class jontainer {
 
     switch (args[0]) {
       case "run" -> {
-          Parent.run(cmd);
+        Parent.run(cmd);
       }
       case "child" -> {
         Child.run(cmd);
@@ -59,8 +62,39 @@ class Child {
     // set the hostname of current child container
     Util.must(() -> new ProcessBuilder("hostname", "container").inheritIO().start().waitFor());
 
-    Util.must(() -> new ProcessBuilder(cmd).inheritIO().start().waitFor());
+    // change to new debian fs
+    Util.cmust(() -> c.INSTANCE.chroot("/my-fs/debian-fs"));
+    Util.cmust(() -> c.INSTANCE.chdir("/"));
+
+    // Mount proc filesystem
+    Util.cmust(() -> c.INSTANCE.mount("proc", "proc", "proc", 0, ""));
+
+    // Processbuilder won't work here - cause it forks the process from the original jvm machine
+    // -- i'm guessing here
+    Util.cmust(() -> c.INSTANCE.system(String.join(" ", cmd)));
+
+    // unmount proc when finishing
+    Util.cmust(() -> c.INSTANCE.umount("/proc", 0));
   }
+}
+
+interface c extends Library {
+  c INSTANCE = Native.load("c", c.class);
+
+  int MS_BIND = 4096;
+
+  // for testing jna writing to sysout
+  int write(int fd, String buf, int count);
+
+  int chroot(String path);
+
+  int chdir(String path);
+
+  int system(String command);
+
+  int mount(String source, String target, String filesystemtype, int mountflags, String data);
+
+  int umount(String target, int flags);
 }
 
 class Util {
@@ -76,5 +110,14 @@ class Util {
   @FunctionalInterface
   interface ThrowableRunnable {
     void run() throws Exception;
+  }
+
+  static void cmust(Supplier<Integer> x) {
+    var res = x.get();
+    if (res < 0) {
+      int errno = Native.getLastError();
+      System.err.println("c call failed with return code: " + res + ", errno: " + errno);
+      System.exit(1);
+    }
   }
 }
