@@ -1,7 +1,6 @@
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import java.util.Arrays;
-import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -36,15 +35,15 @@ class Parent {
     System.out.println(
         "Running parent " + Arrays.toString(cmd) + " as " + ProcessHandle.current().pid());
 
-    String javaExe = ProcessHandle.current().info().command().orElse("java");
-    String classPath = System.getProperty("java.class.path");
-    String mainClass = System.getProperty("sun.java.command").split(" ")[1];
+    var javaExe = ProcessHandle.current().info().command().orElse("java");
+    var classPath = System.getProperty("java.class.path");
+    var mainClass = System.getProperty("sun.java.command").split(" ")[1];
 
-    Stream<String> cmdWithChild =
+    var cmdWithChild =
         Stream.concat(Stream.of(javaExe, "-cp", classPath, mainClass, "child"), Arrays.stream(cmd));
 
     // Prepend unshare with namespace args for the child process
-    List<String> cmdWithUnshare =
+    var cmdWithUnshare =
         Stream.concat(
                 Stream.of("unshare", "--uts", "--pid", "--mount", "--fork", "--mount-proc"),
                 cmdWithChild)
